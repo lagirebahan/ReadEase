@@ -1,0 +1,92 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+import 'package:frontend/pages/home_page.dart';
+import 'package:frontend/pages/notes_page.dart';
+import 'package:frontend/pages/upload_page.dart';
+
+class MainScaffold extends StatefulWidget{
+  const MainScaffold({super.key});
+
+  @override
+  State<StatefulWidget> createState() => _MainScaffoldState();
+}
+
+class _MainScaffoldState extends State<MainScaffold>{
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  List<Widget> get _pages => [
+    HomePage(onSeeAll:()=> setState(() {
+      _currentIndex = 1;
+    })),
+    const NotesPage(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.watch<AppTheme>();
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: theme.baseBg,
+      appBar: AppBar(
+        // backgroundColor: theme.,
+        title: const Text('ReadEase'),
+        elevation: 0,
+        centerTitle: true,
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.settings),//add theme color later
+              onPressed: () => Navigator.pushNamed(context, '/settings'),
+            ),
+        ]
+      ),
+
+      body: _pages[_currentIndex],
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const UploadPage(),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
+
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerDocked,
+
+      bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex= index;
+            });
+          },   
+                 
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+
+            BottomNavigationBarItem(
+              icon: Icon(Icons.note_outlined),
+              activeIcon: Icon(Icons.note),
+              label: 'Notes',
+            ),
+          ] 
+        ),
+    );
+  }
+}
