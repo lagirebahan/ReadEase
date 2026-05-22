@@ -182,7 +182,7 @@ class _NotesPageState extends State<NotesPage>{
       children: [
         if(!_isLoading && _pinned.isNotEmpty) _buildPinnedStrip(theme),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(10),
 
           child: TextField(
             controller: _searchController,
