@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/pages/ocr_test_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/theme/app_theme.dart';
 import 'package:provider/provider.dart';

@@ -9,10 +9,10 @@ class NoteCard extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = note['image'] ?? '';
-    final noteTitle = note['note_title'] ?? '';
+    final imageUrl = note['image_path'] ?? '';
+    final noteTitle = note['title'] ?? '';
     final noteGroup = note['note_group'] ?? 'Uncategorized';
-    final lastUpdated = note['updated_at'] ?? '';
+    final lastUpdated = _formatDate(note['updated_at']);
 
     return Container(
       decoration: BoxDecoration(
@@ -30,7 +30,7 @@ class NoteCard extends StatelessWidget{
               child: imageUrl.isNotEmpty ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                errorBuilder: (context, error, stackTrace) => Container(
                   color: theme.borderColor,
                   child: const Icon(
                     Icons.image_not_supported,
@@ -98,9 +98,25 @@ class NoteCard extends StatelessWidget{
     );
   }
 
-  String _formatDate(dynamic lastUpdated) {
-    final date = 'test';
-    return date;
+  String _formatDate(dynamic rawDate) {
+    if (rawDate == null || rawDate.toString().isEmpty) return 'Unknown';
+    try {
+      final dt = DateTime.parse(rawDate.toString()).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+
+      if (diff.inSeconds < 60) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+      final day = dt.day.toString().padLeft(2, '0');
+      final month = dt.month.toString().padLeft(2, '0');
+      return '$day/$month/${dt.year}';
+    } catch (_) {
+      return rawDate.toString();
+    }
   }
 
 }

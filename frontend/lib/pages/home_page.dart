@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/config/config.dart';
+import 'package:frontend/models/note.dart';
+import 'package:frontend/pages/reader_page.dart';
+import 'package:frontend/services/note_service.dart';
 import 'package:frontend/theme/app_theme.dart';
 import 'package:frontend/widgets/note_card.dart';
 import 'package:provider/provider.dart';
@@ -13,9 +17,11 @@ class HomePage extends StatefulWidget{
 
 class _HomePageState extends State<HomePage>{
   bool _isLoading = true;
-  Map<String, dynamic>? _lastEdited;
-  List<dynamic> _pinned = [];
-  List<dynamic> _recent = [];
+  String? _error;
+
+  Note? _lastEdited;
+  List<Note> _pinned = [];
+  List<Note> _recent = [];
 
   @override
   void initState() {
@@ -23,73 +29,48 @@ class _HomePageState extends State<HomePage>{
     _loadNotes();
   }
 
-  void _loadNotes() async {
+  Future<void> _loadNotes() async {
     await Future.delayed(const Duration(milliseconds: 500));
-    //dummy
-    final lastEdited = {
-      'note_title': 'Biology Notes',
-      'note_group': 'School',
-      'image': 'https://picsum.photos/200',
-      'updated_at': 'May 20, 2026',
-      'is_pinned': true,
-    };
-    final pinned = [
-      {
-        'note_title': 'Biology Notes',
-        'note_group': 'School',
-        'image':
-            'https://picsum.photos/200',
-        'updated_at': 'May 20, 2026',
-        'is_pinned': 'true,'
-      },
-      {
-        'note_title': 'Math Summary',
-        'note_group': 'Lecture',
-        'image':
-            'https://picsum.photos/201',
-        'updated_at': 'May 19, 2026',
-        'is_pinned': 'true,'
-      },
-      {
-        'note_title': 'Project Ideas',
-        'note_group': 'Personal',
-        'image':
-            'https://picsum.photos/204',
-        'updated_at': 'May 10, 2026',
-        'is_pinned': 'true,'
-      },
-    ];
-
-    final recent = [
-      {
-        'note_title': 'Biology Notes',
-        'note_group': 'School',
-        'image': 'https://picsum.photos/200',
-        'updated_at': 'May 20, 2026',
-        'is_pinned': true,
-      },
-      {
-        'note_title': 'Math Summary',
-        'note_group': 'Lecture',
-        'image': 'https://picsum.photos/201',
-        'updated_at': 'May 19, 2026',
-        'is_pinned': false,
-      },
-      {
-        'note_title': 'Chemistry Review',
-        'note_group': 'School',
-        'image': 'https://picsum.photos/202',
-        'updated_at': 'May 17, 2026',
-        'is_pinned': false,
-      },
-    ];
-
     setState(() {
-      _lastEdited = lastEdited;
-      _pinned = pinned.take(4).toList();
-      _recent = recent;
-      _isLoading = false;
+      _isLoading = true;
+      _error = null;
     });
+
+    try{
+      final notes = await NoteService.getNotes();
+ 
+      // Most recently updated = last edited
+      final sorted = [...notes]
+        ..sort((a, b) => (b.updatedAt ?? DateTime(0))
+            .compareTo(a.updatedAt ?? DateTime(0)));
+ 
+      setState(() {
+        _lastEdited = sorted.isNotEmpty ? sorted.first : null;
+        _pinned = notes.where((n) => n.isPinned).take(4).toList();
+        _recent = sorted.take(6).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _openNote(Note note) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReaderPage(
+          noteId: note.noteId,
+          initialTitle: note.title,
+          initialText: note.extractedText,
+          noteGroup: note.noteGroup,
+          isPinned: note.isPinned,
+        ),
+      ),
+    ).then((_) => _loadNotes()); // refresh on return
   }
 
   
@@ -130,8 +111,8 @@ class _HomePageState extends State<HomePage>{
           ),
           if (onSeeAll != null)
             GestureDetector(
-              onTap: widget.onSeeAll,
-              child: Text('See all >', style: TextStyle(color: theme.primaryTextColor,)),
+              onTap: onSeeAll,
+              child: Text('See all >', style: TextStyle(color: theme.accentColor, fontSize: 13)),
             ),
         ],
       ),
@@ -140,36 +121,37 @@ class _HomePageState extends State<HomePage>{
 
   Widget _buildContinueSection(AppTheme theme) {
     final note = _lastEdited!;
+    final imageUrl = '${AppConfig.baseUrl}${note.imagePath}';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // TODO: open the note
+          _openNote(note);
         },
         child: Ink(
           decoration: BoxDecoration(
-            color: theme.primaryTextColor.withOpacity(0.08),
+            color: theme.primaryTextColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: theme.primaryTextColor.withOpacity(0.2),
+              color: theme.primaryTextColor.withValues(alpha: 0.2),
             ),
           ),
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.network(
-                  note['image'] as String,
+                  imageUrl,
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     width: 56,
                     height: 56,
-                    color: theme.primaryTextColor.withOpacity(0.15),
+                    color: theme.primaryTextColor.withValues(alpha: 0.15),
                     child: Icon(Icons.note, color: theme.primaryTextColor),
                   ),
                 ),
@@ -183,12 +165,12 @@ class _HomePageState extends State<HomePage>{
                     Text(
                       'Continue where you left off',
                       style: theme
-                          .baseTextStyle(Colors.black)
+                          .baseTextStyle(theme.primaryTextColor.withValues(alpha: 0.5))
                           .copyWith(fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      note['note_title'] as String,
+                      note.title,
                       style: theme
                           .baseTextStyle(theme.primaryTextColor)
                           .copyWith(
@@ -200,9 +182,9 @@ class _HomePageState extends State<HomePage>{
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${note['note_group']}  ·  ${note['updated_at']}',
+                      '${note.noteGroup}  ·  ${note.updatedAt}',
                       style: theme
-                          .baseTextStyle(Colors.black)
+                          .baseTextStyle(theme.primaryTextColor.withValues(alpha: 0.5))
                           .copyWith(fontSize: 12),
                     ),
                   ],
@@ -211,7 +193,7 @@ class _HomePageState extends State<HomePage>{
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: Colors.black,
+                color: theme.primaryTextColor.withValues(alpha: 0.5),
               ),
             ],
           ),
@@ -244,24 +226,20 @@ class _HomePageState extends State<HomePage>{
             child: Ink(
               width: 80,
               decoration: BoxDecoration(
-                color: theme.surfaceBg, //theme.cardColor
+                color: theme.surfaceBg,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.black ?? Colors.grey.shade200, //theme.dividerColor
-                ),
+                border: Border.all(color: theme.borderColor),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, color: theme.primaryTextColor, size: 26),
                   const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: theme
-                        .baseTextStyle(theme.primaryTextColor)
-                        .copyWith(fontSize: 11),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(label,
+                      style: theme
+                          .baseTextStyle(theme.primaryTextColor)
+                          .copyWith(fontSize: 11),
+                      textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -271,74 +249,96 @@ class _HomePageState extends State<HomePage>{
     );
   }
  
-  /// Pinned notes grid (max 4, 2-column)
-  Widget _buildPinnedSection(AppTheme theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(theme, '📌 Pinned'),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _pinned.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.65,
-          ),
-          itemBuilder: (context, index) {
-            return NoteCard(note: _pinned[index], theme: theme);
-          },
-        ),
-      ],
+  Widget _buildNoteGrid(List<Note> notes) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: notes.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.65,
+      ),
+      itemBuilder: (context, index) {
+        final note = notes[index];
+        return GestureDetector(
+          onTap: () => _openNote(note),
+          child: NoteCard(note: note.toDisplayMap(), theme: context.read<AppTheme>()),
+        );
+      },
     );
   }
  
-  /// Recent notes grid
-  Widget _buildRecentSection(AppTheme theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader(
-          theme,
-          'Recent Notes',
-          onSeeAll: () {
-            // TODO: navigate to Notes page / all-notes view
-          },
-        ),
-        const SizedBox(height: 12),
-        if (_recent.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: Center(
-              child: Text(
-                'No recent notes.',
-                style: theme.baseTextStyle(Colors.black),
-              ),
-            ),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _recent.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.65,
-            ),
-            itemBuilder: (context, index) {
-              return NoteCard(note: _recent[index], theme: theme);
-            },
-          ),
-      ],
-    );
-  }
+  /// Pinned notes grid (max 4, 2-column)
+  // Widget _buildPinnedSection(AppTheme theme) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       _buildSectionHeader(theme, '📌 Pinned'),
+  //       const SizedBox(height: 12),
+  //       GridView.builder(
+  //         shrinkWrap: true,
+  //         physics: const NeverScrollableScrollPhysics(),
+  //         padding: const EdgeInsets.symmetric(horizontal: 16),
+  //         itemCount: _pinned.length,
+  //         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+  //           crossAxisCount: 2,
+  //           mainAxisSpacing: 12,
+  //           crossAxisSpacing: 12,
+  //           childAspectRatio: 0.65,
+  //         ),
+  //         itemBuilder: (context, index) {
+  //           return NoteCard(note: _pinned[index], theme: theme);
+  //         },
+  //       ),
+  //     ],
+  //   );
+  // }
+ 
+  // /// Recent notes grid
+  // Widget _buildRecentSection(AppTheme theme) {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       _buildSectionHeader(
+  //         theme,
+  //         'Recent Notes',
+  //         onSeeAll: () {
+  //           // TODO: navigate to Notes page / all-notes view
+  //         },
+  //       ),
+  //       const SizedBox(height: 12),
+  //       if (_recent.isEmpty)
+  //         Padding(
+  //           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+  //           child: Center(
+  //             child: Text(
+  //               'No recent notes.',
+  //               style: theme.baseTextStyle(Colors.black),
+  //             ),
+  //           ),
+  //         )
+  //       else
+  //         GridView.builder(
+  //           shrinkWrap: true,
+  //           physics: const NeverScrollableScrollPhysics(),
+  //           padding: const EdgeInsets.symmetric(horizontal: 16),
+  //           itemCount: _recent.length,
+  //           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+  //             crossAxisCount: 2,
+  //             mainAxisSpacing: 12,
+  //             crossAxisSpacing: 12,
+  //             childAspectRatio: 0.65,
+  //           ),
+  //           itemBuilder: (context, index) {
+  //             return NoteCard(note: _recent[index], theme: theme);
+  //           },
+  //         ),
+  //     ],
+  //   );
+  // }
 
 
   @override
@@ -349,32 +349,64 @@ class _HomePageState extends State<HomePage>{
       return const Center(child: CircularProgressIndicator());
     }
  
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
- 
-          // ① Continue where you left off
-          if (_lastEdited != null) ...[
-            _buildContinueSection(theme),
-            const SizedBox(height: 24),
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text('Could not connect to server',
+                style: theme.baseTextStyle(theme.primaryTextColor)),
+            const SizedBox(height: 8),
+            TextButton(onPressed: _loadNotes, child: const Text('Retry')),
           ],
+        ),
+      );
+    }
  
-          // ② Quick actions
-          _buildQuickActions(theme),
-          const SizedBox(height: 24),
+    return RefreshIndicator(
+      onRefresh: _loadNotes,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
  
-          // ③ Pinned notes (only shown when there are any)
-          if (_pinned.isNotEmpty) ...[
-            _buildPinnedSection(theme),
+            if (_lastEdited != null) ...[
+              _buildContinueSection(theme),
+              const SizedBox(height: 24),
+            ],
+ 
+            _buildQuickActions(theme),
             const SizedBox(height: 24),
-          ],
  
-          // ④ Recent notes
-          _buildRecentSection(theme),
-        ],
+            if (_pinned.isNotEmpty) ...[
+              _buildSectionHeader(theme, '📌 Pinned'),
+              const SizedBox(height: 12),
+              _buildNoteGrid(_pinned),
+              const SizedBox(height: 24),
+            ],
+ 
+            _buildSectionHeader(theme, 'Recent Notes',
+                onSeeAll: widget.onSeeAll),
+            const SizedBox(height: 12),
+            if (_recent.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 24),
+                child: Center(
+                  child: Text('No notes yet.',
+                      style: theme.baseTextStyle(
+                          theme.primaryTextColor.withOpacity(0.5))),
+                ),
+              )
+            else
+              _buildNoteGrid(_recent),
+          ],
+        ),
       ),
     );
   }

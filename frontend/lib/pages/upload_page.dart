@@ -2,14 +2,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/config/config.dart';
 import 'package:frontend/theme/app_theme.dart';
 import 'package:frontend/pages/reader_page.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-
-// ─── Change this to your machine's local IP ───────────────────────────────────
-const String _baseUrl = 'http://192.168.1.4:3001';
 
 class UploadPage extends StatefulWidget {
   const UploadPage({super.key});
@@ -43,7 +41,7 @@ class _UploadPageState extends State<UploadPage> {
     });
 
     try {
-      final uri = Uri.parse('$_baseUrl/upload');
+      final uri = Uri.parse('${AppConfig.baseUrl}/upload');
       final request = http.MultipartRequest('POST', uri)
         ..files.add(http.MultipartFile.fromBytes(
           'image',
@@ -67,8 +65,8 @@ class _UploadPageState extends State<UploadPage> {
       // Show save dialog; delete note if user discards
       final saved = await _showSaveSheet(note);
       if (!saved) {
-        await http.delete(Uri.parse('$_baseUrl/api/notes/${note['note_id']}'));
-        // Reset so user can pick again
+        await http.delete(Uri.parse('${AppConfig.baseUrl}/api/notes/${note['note_id']}'));
+        if(!mounted) return;
         setState(() => _imageBytes = null);
       }
     } catch (e) {
@@ -87,7 +85,7 @@ class _UploadPageState extends State<UploadPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SaveSheet(note: note, baseUrl: _baseUrl),
+      builder: (_) => _SaveSheet(note: note, baseUrl: AppConfig.baseUrl),
     );
     return result ?? false;
   }

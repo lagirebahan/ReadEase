@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:frontend/config/config.dart';
 import 'package:frontend/theme/app_theme.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
-const String _baseUrl = 'http://192.168.1.4:3001';
+// const String {AppConfig.baseUrl} = 'http://192.168.1.4:3001';
 
 class ReaderPage extends StatefulWidget {
   final int noteId;
@@ -56,7 +57,7 @@ class _ReaderPageState extends State<ReaderPage> {
     setState(() => _isSaving = true);
     try {
       await http.put(
-        Uri.parse('$_baseUrl/api/notes/${widget.noteId}'),
+        Uri.parse('${AppConfig.baseUrl}/api/notes/${widget.noteId}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'title': _title,
@@ -109,7 +110,7 @@ class _ReaderPageState extends State<ReaderPage> {
             onPressed: () async {
               setState(() => _isPinned = !_isPinned);
               await http.put(
-                Uri.parse('$_baseUrl/api/notes/${widget.noteId}'),
+                Uri.parse('${AppConfig.baseUrl}/api/notes/${widget.noteId}'),
                 headers: {'Content-Type': 'application/json'},
                 body: jsonEncode({
                   'title': _title,

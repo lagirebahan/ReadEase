@@ -11,7 +11,6 @@ class AppTheme extends ChangeNotifier {
   // double _backgroundBrightness = 1.0; // 0.5 → 1.5 (multiplier on base bg)
   BgMode _bgMode = BgMode.light;
 
-  // ── Getters ───────────────────────────────
   double get fontSize => _fontSize;
   String get fontFamily => _fontFamily;
   Color get accentColor => _accentColor;
@@ -23,15 +22,11 @@ class AppTheme extends ChangeNotifier {
       ? Colors.black
       : const Color(0xFF0D0D1A);
 
-  // Color get baseBg => _blended(const Color(0xFF0D0D1A));
-
   Color get surfaceBg => _bgMode == BgMode.light
     ? const Color(0xFFFFFFFF)
     : _bgMode == BgMode.amoled
       ? const Color(0xFF0A0A0A)
       : const Color(0xFF1A1A2E);
-
-  // Color get surfaceBg => _blended(const Color(0xFF1A1A2E));
 
   Color get borderColor => _bgMode == BgMode.light
     ? const Color(0xFFDDDDE8)
@@ -91,12 +86,6 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
     _save();
   }
-
-  // void setBackgroundBrightness(double v) {
-  //   _backgroundBrightness = v;
-  //   notifyListeners();
-  //   _save();
-  // }
 
   Future<void> reset() async {
     _fontSize = 14.0;
