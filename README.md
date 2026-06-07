@@ -10,3 +10,7 @@ To run the program:
 Test user:
 email: test@testuser.com
 password: testU$ER
+
+Font references :
+https://fonts.google.com/specimen/Lexend
+https://opendyslexic.org/
