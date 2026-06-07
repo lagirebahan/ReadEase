@@ -5,6 +5,8 @@ const path = require('path');
 const notesRouter = require('./routes/notes');
 const groupsRouter = require('./routes/groups');
 const uploadRouter = require('./routes/upload');
+const foldersRouter = require('./routes/folders');
+const authRouter = require('./routes/auth');
 
 const app = express();
 const port = 3001;
@@ -15,6 +17,8 @@ app.use('/uploads', express.static(path.join(__dirname,'uploads')));
 
 app.use('/api/notes', notesRouter);
 app.use('/api/groups', groupsRouter);
+app.use('/api/folders', foldersRouter);
 app.use('/upload', uploadRouter);
+app.use('/api/auth', authRouter);
 
 app.listen(port, () => console.log(`Backend API sudah menyala di http://localhost:${port}`));

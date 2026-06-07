@@ -3,12 +3,16 @@ const router = express.Router();
 const db = require('../db');
 
 router.get('/', (req, res) => {
+    const userId = req.headers['x-user-id'];
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
     db.query(
-        `SELECT DISTINCT note_group FROM notes
-         WHERE note_group IS NOT NULL
-           AND note_group != 'Uncategorized'
-           AND note_group != '__temp__'
+        `SELECT DISTINCT f.name AS note_group 
+         FROM notes n
+         INNER JOIN folders f ON n.folder_id = f.folder_id
+         WHERE n.user_id = ?
          ORDER BY note_group ASC`,
+        [userId],
         (err, results) => {
             if (err) return res.status(500).json({ error: err.message });
             res.json(results.map(r => r.note_group));

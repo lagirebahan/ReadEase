@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +15,7 @@ class MainScaffold extends StatefulWidget{
 
 class _MainScaffoldState extends State<MainScaffold>{
   int _currentIndex = 0;
+  int _refreshCounter = 0;
 
   @override
   void initState() {
@@ -23,10 +23,15 @@ class _MainScaffoldState extends State<MainScaffold>{
   }
 
   List<Widget> get _pages => [
-    HomePage(onSeeAll:()=> setState(() {
-      _currentIndex = 1;
-    })),
-    const NotesPage(),
+    HomePage(
+      key: ValueKey('home_$_refreshCounter'),
+      onSeeAll: () => setState(() {
+        _currentIndex = 1;
+      }),
+    ),
+    NotesPage(
+      key: ValueKey('notes_$_refreshCounter'),
+    ),
   ];
 
   @override
@@ -36,13 +41,13 @@ class _MainScaffoldState extends State<MainScaffold>{
       resizeToAvoidBottomInset: false,
       backgroundColor: theme.baseBg,
       appBar: AppBar(
-        // backgroundColor: theme.,
-        title: const Text('ReadEase'),
+        backgroundColor: theme.surfaceBg,
+        title: Text('ReadEase', style: theme.baseTextStyle(theme.primaryTextColor).copyWith(fontSize: 20, fontWeight: FontWeight.w700)),
         elevation: 0,
         centerTitle: true,
         actions: [
           IconButton(
-              icon: const Icon(Icons.settings),//add theme color later
+              icon: Icon(Icons.settings, color: theme.primaryTextColor),
               onPressed: () => Navigator.pushNamed(context, '/settings'),
             ),
         ]
@@ -57,7 +62,11 @@ class _MainScaffoldState extends State<MainScaffold>{
             MaterialPageRoute(
               builder: (_) => const UploadPage(),
             ),
-          );
+          ).then((_) {
+            setState(() {
+              _refreshCounter++;
+            });
+          });
         },
         child: const Icon(Icons.add),
       ),

@@ -8,6 +8,7 @@ import 'package:frontend/pages/reader_page.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:frontend/services/auth_service.dart';
 
 class UploadPage extends StatefulWidget {
   const UploadPage({super.key});
@@ -22,18 +23,22 @@ class _UploadPageState extends State<UploadPage> {
   bool _isScanning = false;
   final CropController _cropController = CropController();
 
-  // ── Pick image from gallery ────────────────────────────────────────────────
-  Future<void> _pickImage() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+  Future<void> _pickImage(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
+    if (!mounted) return;
     setState(() {
       _imageBytes = bytes;
       _isCropping = true;
     });
   }
 
-  // ── After crop: OCR → temp-save → show save dialog ────────────────────────
   Future<void> _onCropped(Uint8List croppedBytes) async {
     setState(() {
       _isCropping = false;
@@ -41,8 +46,12 @@ class _UploadPageState extends State<UploadPage> {
     });
 
     try {
+      final user = await AuthService.getCurrentUser();
       final uri = Uri.parse('${AppConfig.baseUrl}/upload');
       final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll({
+          if (user != null) 'x-user-id': user['user_id']!,
+        })
         ..files.add(http.MultipartFile.fromBytes(
           'image',
           croppedBytes,
@@ -53,6 +62,9 @@ class _UploadPageState extends State<UploadPage> {
         ..fields['is_pinned'] = '0';
 
       final response = await request.send();
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Server returned ${response.statusCode}');
+      }
       final body = await response.stream.bytesToString();
       final data = jsonDecode(body);
 
@@ -62,10 +74,15 @@ class _UploadPageState extends State<UploadPage> {
 
       final note = data['note'] as Map<String, dynamic>;
 
-      // Show save dialog; delete note if user discards
       final saved = await _showSaveSheet(note);
       if (!saved) {
-        await http.delete(Uri.parse('${AppConfig.baseUrl}/api/notes/${note['note_id']}'));
+        final user = await AuthService.getCurrentUser();
+        await http.delete(
+          Uri.parse('${AppConfig.baseUrl}/api/notes/${note['note_id']}'),
+          headers: {
+            if (user != null) 'x-user-id': user['user_id']!,
+          },
+        );
         if(!mounted) return;
         setState(() => _imageBytes = null);
       }
@@ -78,8 +95,6 @@ class _UploadPageState extends State<UploadPage> {
     }
   }
 
-  // ── Save bottom sheet ──────────────────────────────────────────────────────
-  // Returns true if the user saved (and we navigated away), false if discarded.
   Future<bool> _showSaveSheet(Map<String, dynamic> note) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -90,12 +105,10 @@ class _UploadPageState extends State<UploadPage> {
     return result ?? false;
   }
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<AppTheme>();
 
-    // ── Crop view ────────────────────────────────────────────────────────────
     if (_isCropping && _imageBytes != null) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -144,7 +157,6 @@ class _UploadPageState extends State<UploadPage> {
       );
     }
 
-    // ── Scanning overlay ─────────────────────────────────────────────────────
     if (_isScanning) {
       return Scaffold(
         backgroundColor: theme.baseBg,
@@ -165,11 +177,10 @@ class _UploadPageState extends State<UploadPage> {
       );
     }
 
-    // ── Default: pick image ───────────────────────────────────────────────────
     return Scaffold(
       backgroundColor: theme.baseBg,
       appBar: AppBar(
-        title: Text('Upload',
+        title: Text('Scan Document',
             style: TextStyle(
                 color: theme.primaryTextColor,
                 fontFamily: 'Georgia',
@@ -177,75 +188,113 @@ class _UploadPageState extends State<UploadPage> {
         backgroundColor: theme.baseBg,
         elevation: 0,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Illustrated upload area
-              GestureDetector(
-                onTap: _pickImage,
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          children: [
+            Expanded(
+              flex: 3,
+              child: GestureDetector(
+                onTap: () => _pickImage(ImageSource.camera),
                 child: Container(
                   width: double.infinity,
-                  height: 220,
                   decoration: BoxDecoration(
-                    color: theme.surfaceBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: theme.borderColor,
-                      width: 1.5,
-                    ),
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: theme.accentColor, width: 2),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_photo_alternate_outlined,
-                          size: 56, color: theme.accentColor),
-                      const SizedBox(height: 16),
-                      Text('Tap to pick an image',
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: theme.accentColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.camera_alt_rounded,
+                            size: 56, color: theme.accentColor),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text('Take a Photo',
                           style: TextStyle(
-                              color: theme.primaryTextColor,
-                              fontSize: 16,
-                              fontFamily: 'Georgia')),
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontFamily: 'Georgia',
+                              fontWeight: FontWeight.w700)),
                       const SizedBox(height: 6),
-                      Text('Supports JPG, PNG',
+                      Text('Point your camera at a document',
                           style: TextStyle(
-                              color: theme.primaryTextColor.withOpacity(0.45),
+                              color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 13)),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.accentColor,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: _pickImage,
-                  icon:
-                      const Icon(Icons.photo_library, color: Colors.white),
-                  label: const Text('Choose from Gallery',
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(child: Divider(color: theme.borderColor)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('or',
                       style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                          color: theme.primaryTextColor.withValues(alpha: 0.4),
+                          fontSize: 13)),
+                ),
+                Expanded(child: Divider(color: theme.borderColor)),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            Expanded(
+              flex: 1,
+              child: GestureDetector(
+                onTap: () => _pickImage(ImageSource.gallery),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: theme.surfaceBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.borderColor, width: 1.5),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.photo_library_outlined,
+                          size: 28, color: theme.accentColor),
+                      const SizedBox(width: 12),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Import from Gallery',
+                              style: TextStyle(
+                                  color: theme.primaryTextColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600)),
+                          Text('JPG, PNG supported',
+                              style: TextStyle(
+                                  color: theme.primaryTextColor
+                                      .withValues(alpha: 0.45),
+                                  fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
-// ─── Save bottom sheet ─────────────────────────────────────────────────────────
 
 class _SaveSheet extends StatefulWidget {
   final Map<String, dynamic> note;
@@ -258,8 +307,7 @@ class _SaveSheet extends StatefulWidget {
 
 class _SaveSheetState extends State<_SaveSheet> {
   final _titleController = TextEditingController();
-  String? _selectedGroup;   // null = Ungrouped
-  String? _newGroupName;
+  String? _selectedGroup;
   bool _isPinned = false;
   bool _isCreatingGroup = false;
   List<String> _groups = [];
@@ -276,8 +324,13 @@ class _SaveSheetState extends State<_SaveSheet> {
 
   Future<void> _loadGroups() async {
     try {
-      final res =
-          await http.get(Uri.parse('${widget.baseUrl}/api/groups'));
+      final user = await AuthService.getCurrentUser();
+      final res = await http.get(
+        Uri.parse('${widget.baseUrl}/api/folders'),
+        headers: {
+          if (user != null) 'x-user-id': user['user_id']!,
+        },
+      );
       if (res.statusCode == 200) {
         final List data = jsonDecode(res.body);
         setState(() {
@@ -307,9 +360,13 @@ class _SaveSheetState extends State<_SaveSheet> {
         : (_selectedGroup ?? 'Uncategorized');
 
     try {
-      await http.put(
+      final user = await AuthService.getCurrentUser();
+      final res = await http.put(
         Uri.parse('${widget.baseUrl}/api/notes/${widget.note['note_id']}'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (user != null) 'x-user-id': user['user_id']!,
+        },
         body: jsonEncode({
           'title': title,
           'extracted_text': widget.note['extracted_text'],
@@ -318,10 +375,13 @@ class _SaveSheetState extends State<_SaveSheet> {
         }),
       );
 
+      if (res.statusCode != 200) {
+        throw Exception('Server returned ${res.statusCode}');
+      }
+
       if (!mounted) return;
 
-      // Navigate to reader, removing the save sheet and upload page
-      Navigator.of(context).pop(true); // close sheet
+      Navigator.of(context).pop(true);
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ReaderPage(
@@ -361,7 +421,6 @@ class _SaveSheetState extends State<_SaveSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -387,7 +446,6 @@ class _SaveSheetState extends State<_SaveSheet> {
                     fontSize: 14)),
             const SizedBox(height: 24),
 
-            // ── Title ──────────────────────────────────────────────────────
             Text('Title',
                 style: TextStyle(
                     color: theme.primaryTextColor,
@@ -421,7 +479,6 @@ class _SaveSheetState extends State<_SaveSheet> {
             ),
             const SizedBox(height: 20),
 
-            // ── Group ──────────────────────────────────────────────────────
             Text('Group',
                 style: TextStyle(
                     color: theme.primaryTextColor,
@@ -438,7 +495,6 @@ class _SaveSheetState extends State<_SaveSheet> {
             else
               _buildGroupPicker(theme),
 
-            // New group text field (shown when "New Group" is selected)
             if (_isCreatingGroup) ...[
               const SizedBox(height: 12),
               TextField(
@@ -470,7 +526,6 @@ class _SaveSheetState extends State<_SaveSheet> {
 
             const SizedBox(height: 20),
 
-            // ── Pin toggle ─────────────────────────────────────────────────
             GestureDetector(
               onTap: () => setState(() => _isPinned = !_isPinned),
               child: Container(
@@ -514,7 +569,6 @@ class _SaveSheetState extends State<_SaveSheet> {
 
             const SizedBox(height: 28),
 
-            // ── Action buttons ─────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -565,7 +619,6 @@ class _SaveSheetState extends State<_SaveSheet> {
   }
 
   Widget _buildGroupPicker(AppTheme theme) {
-    // Fixed-height scrollable list of chips
     final options = <_GroupOption>[
       const _GroupOption(label: 'Ungrouped', value: null, isNew: false),
       ..._groups.map((g) => _GroupOption(label: g, value: g, isNew: false)),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/theme/app_theme.dart';
+import 'package:frontend/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -32,11 +33,9 @@ class SettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
 
-          // ── Reading Experience ──────────────────────────────────────────
           _SectionHeader(label: 'Reading Experience', theme: theme),
           const SizedBox(height: 12),
 
-          // Font size
           _SettingCard(
             theme: theme,
             child: Column(
@@ -63,7 +62,6 @@ class SettingsPage extends StatelessWidget {
                   onChanged: (v) =>
                       context.read<AppTheme>().setFontSize(v),
                 ),
-                // Preview
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -73,7 +71,9 @@ class SettingsPage extends StatelessWidget {
                   ),
                   child: Text(
                     'The quick brown fox jumps over the lazy dog.',
-                    style: theme.baseTextStyle(theme.primaryTextColor),
+                    style: theme.baseTextStyle(
+                      theme.useAccentForText ? theme.accentColor : theme.primaryTextColor,
+                    ),
                   ),
                 ),
               ],
@@ -82,7 +82,48 @@ class SettingsPage extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Font family
+          _SettingCard(
+            theme: theme,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Letter Spacing',
+                          style: theme
+                              .baseTextStyle(theme.primaryTextColor)
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          '${theme.letterSpacing.toStringAsFixed(1)}px',
+                          style: theme.baseTextStyle(
+                            theme.primaryTextColor.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: theme.letterSpacing,
+                  min: -1.0,
+                  max: 5.0,
+                  divisions: 60,
+                  activeColor: theme.accentColor,
+                  onChanged: (v) =>
+                      context.read<AppTheme>().setLetterSpacing(v),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           _SettingCard(
             theme: theme,
             child: Column(
@@ -100,6 +141,8 @@ class SettingsPage extends StatelessWidget {
                     'Default',
                     'Georgia',
                     'Monospace',
+                    'Lexend',
+                    'OpenDyslexic'
                   ].map((font) {
                     final selected = theme.fontFamily == font;
                     return ChoiceChip(
@@ -125,13 +168,43 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
 
+          const SizedBox(height: 12),
+
+          _SettingCard(
+            theme: theme,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Use Accent Color for Note Text',
+                          style: theme
+                              .baseTextStyle(theme.primaryTextColor)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text('Apply your accent color to note body text',
+                          style: theme.baseTextStyle(
+                              theme.primaryTextColor.withOpacity(0.5)).copyWith(fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: theme.useAccentForText,
+                  activeColor: theme.accentColor,
+                  onChanged: (v) =>
+                      context.read<AppTheme>().setUseAccentForText(v),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 24),
 
-          // ── Appearance ──────────────────────────────────────────────────
           _SectionHeader(label: 'Appearance', theme: theme),
           const SizedBox(height: 12),
 
-          // Background mode
           _SettingCard(
             theme: theme,
             child: Column(
@@ -172,7 +245,6 @@ class SettingsPage extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Accent color
           _SettingCard(
             theme: theme,
             child: Column(
@@ -187,6 +259,8 @@ class SettingsPage extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
+                    Colors.white,
+                    Colors.black,
                     Colors.deepPurple,
                     Colors.indigo,
                     Colors.blue,
@@ -211,18 +285,20 @@ class SettingsPage extends StatelessWidget {
                           border: selected
                               ? Border.all(
                                   color: theme.primaryTextColor, width: 3)
-                              : null,
+                              : Border.all(
+                                  color: theme.borderColor, width: 1.5),
                           boxShadow: selected
                               ? [
                                   BoxShadow(
-                                      color: color.withOpacity(0.5),
+                                      color: color.withOpacity(0.3),
                                       blurRadius: 8)
                                 ]
                               : null,
                         ),
                         child: selected
-                            ? const Icon(Icons.check,
-                                color: Colors.white, size: 18)
+                            ? Icon(Icons.check,
+                                color: (color == Colors.white) ? Colors.black : Colors.white,
+                                size: 18)
                             : null,
                       ),
                     );
@@ -234,7 +310,53 @@ class SettingsPage extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // ── Reset ───────────────────────────────────────────────────────
+          _SectionHeader(label: 'Account', theme: theme),
+          const SizedBox(height: 12),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: Colors.red.withOpacity(0.5)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.logout_rounded, color: Colors.red),
+              label: const Text('Log Out',
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.w600)),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Log Out'),
+                    content: const Text(
+                        'Are you sure you want to log out?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Log Out',
+                              style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  await AuthService.logout();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/login', (route) => false);
+                  }
+                }
+              },
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -279,8 +401,6 @@ class SettingsPage extends StatelessWidget {
     );
   }
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final String label;
