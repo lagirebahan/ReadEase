@@ -250,94 +250,104 @@ class _NotesPageState extends State<NotesPage> {
 
     return RefreshIndicator(
       onRefresh: _loadNotes,
-      child: Column(
-        children: [
-          if (_pinned.isNotEmpty) _buildPinnedStrip(theme),
+      child: CustomScrollView(
+        slivers: [
+          if (_pinned.isNotEmpty) SliverToBoxAdapter(child: _buildPinnedStrip(theme),) ,
 
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search notes...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: theme.borderColor),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: theme.borderColor),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search notes...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: theme.borderColor),
+                  ),
                 ),
               ),
             ),
           ),
-
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _noteGroups.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final group = _noteGroups[index];
-                      return ChoiceChip(
-                        label: Text(group),
-                        selected: group == _selectedGroup,
-                        onSelected: (_) => _onGroupSelected(group),
-                      );
-                    },
+          SliverToBoxAdapter(
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _noteGroups.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final group = _noteGroups[index];
+                        return ChoiceChip(
+                          label: Text(group),
+                          selected: group == _selectedGroup,
+                          onSelected: (_) => _onGroupSelected(group),
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              if (_selectedGroup != 'All' && _selectedGroup != 'Uncategorized')
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    color: Colors.redAccent,
-                    tooltip: 'Delete folder',
-                    onPressed: () => _confirmDeleteFolder(_selectedGroup),
+                if (_selectedGroup != 'All' && _selectedGroup != 'Uncategorized')
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: Colors.redAccent,
+                      tooltip: 'Delete folder',
+                      onPressed: () => _confirmDeleteFolder(_selectedGroup),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
+          
 
-          const SizedBox(height: 8),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-          Expanded(
-            child: _filtered.isEmpty
-                ? Center(
-                    child: Text('No notes found',
-                        style: theme.baseTextStyle(
-                            theme.primaryTextColor.withOpacity(0.5))),
-                  )
-                : GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filtered.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+          if(_filtered.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Text('No notes found',
+                  style: theme.baseTextStyle(
+                    theme.primaryTextColor.withOpacity(0.5))),
+              )
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final note = _filtered[index];
+                    return GestureDetector(
+                      onTap: () => _openNote(note),
+                      child: NoteCard(
+                        note: note.toDisplayMap(),
+                        theme: theme,
+                      ),
+                    );
+                  },
+                  childCount: _filtered.length,
+                ), 
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                       childAspectRatio: 0.65,
                     ),
-                    itemBuilder: (context, index) {
-                      final note = _filtered[index];
-                      return GestureDetector(
-                        onTap: () => _openNote(note),
-                        child: NoteCard(
-                          note: note.toDisplayMap(),
-                          theme: theme,
-                        ),
-                      );
-                    },
-                  ),
-          ),
+              ),
+            )
+
+          
         ],
       ),
     );
