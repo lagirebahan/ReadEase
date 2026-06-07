@@ -6,3 +6,7 @@ To run the program:
 5. 'flutter clean' in /frontend
 6. 'flutter pub get' in /frontend
 7. 'flutter run' while connected to an android device in /frontend
+
+Test user:
+email: test@testuser.com
+password: testU$ER
