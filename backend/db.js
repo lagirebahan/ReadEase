@@ -11,7 +11,6 @@ db.connect((err) => {
     if (err) throw err;
     console.log('Database connected!');
 
-    // Sequential table creation to respect foreign key constraints
     db.query(`
         CREATE TABLE IF NOT EXISTS users (
             user_id  INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,4 +67,4 @@ db.connect((err) => {
     });
 });
 
-module.exports = db;
+module.exports = db;

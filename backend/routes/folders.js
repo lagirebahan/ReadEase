@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET /api/folders — all folders for user
 router.get('/', (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -14,7 +13,6 @@ router.get('/', (req, res) => {
   });
 });
 
-// POST /api/folders — create a new empty folder
 router.post('/', (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -32,7 +30,6 @@ router.post('/', (req, res) => {
   );
 });
 
-// DELETE /api/folders/:name — delete folder (moves its notes to Uncategorized via FK ON DELETE SET NULL)
 router.delete('/:name', (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });

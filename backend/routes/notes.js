@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Helper to resolve note_group string to folder_id for a given user
 function resolveFolderId(userId, noteGroup, callback) {
     if (!noteGroup || noteGroup === 'Uncategorized' || noteGroup === '__temp__' || !noteGroup.trim()) {
         return callback(null, null);
@@ -16,7 +15,6 @@ function resolveFolderId(userId, noteGroup, callback) {
             if (results.length > 0) {
                 return callback(null, results[0].folder_id);
             }
-            // Create the folder if it doesn't exist
             db.query(
                 'INSERT INTO folders (user_id, name) VALUES (?, ?)',
                 [userId, trimmed],
@@ -75,7 +73,6 @@ router.get('/', (req, res) => {
     });
 });
 
-// Create a brand-new blank note (no image, no OCR)
 router.post('/', (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
